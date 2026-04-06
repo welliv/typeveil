@@ -24,19 +24,26 @@ Enable: Settings → System → Languages & input → Virtual keyboard → Typev
 ## Security
 
 - E2E encryption at the keyboard level — apps never see plaintext
-- ECC encryption via OpenPGP (BouncyCastle 1.70)
+- RSA-2048 key generation via OpenPGP (BouncyCastle 1.70)
 - Keys in Android Keystore (hardware-backed where available)
-- Private key encrypted with AES-256-GCM, passphrase-derived
+- Private key encrypted with passphrase-derived AES-256
 - FLAG_SECURE blocks screenshots and screen recordings
 - Zero network calls, zero telemetry, zero infrastructure
+- Memory zeroing after cryptographic operations
+
+## What It Won't Protect You From
+
+A compromised device sees plaintext. A compromised recipient decrypts and screenshots. Keyloggers bypass the keyboard layer. These are not Typeveil problems — they're device trust problems.
+
+"The platform never sees plaintext" is true. "The platform is the attacker" is false — Typeveil assumes the platform is the adversary.
 
 ## Tech
 
 ```
 android/app/src/main/
 ├── java/.../TypeveilIME.java       # InputMethodService — the keyboard
-├── java/.../Crypto.java            # OpenPGP encrypt/decrypt, Android Keystore
-├── java/.../SettingsActivity.java  # Enable keyboard, generate keys
+├── java/.../Crypto.java            # OpenPGP encrypt/decrypt, RSA-2048 keys, Keystore
+├── java/.../SettingsActivity.java  # Enable keyboard, generate keys, manage recipients
 ├── res/xml/
 │   ├── qwerty.xml                  # Full QWERTY with Veil/Unveil keys
 │   └── method.xml                  # IME registration

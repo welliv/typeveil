@@ -22,13 +22,10 @@ public class SettingsActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        // BLOCK SCREENSHOTS AND SCREEN RECORDS
         getWindow().setFlags(
             WindowManager.LayoutParams.FLAG_SECURE,
             WindowManager.LayoutParams.FLAG_SECURE
         );
-
         setContentView(R.layout.settings);
 
         Button enableBtn = findViewById(R.id.btn_enable);
@@ -40,8 +37,11 @@ public class SettingsActivity extends AppCompatActivity {
         Button genKeyBtn = findViewById(R.id.btn_gen_key);
         genKeyBtn.setOnClickListener(v -> showPassphraseDialog());
 
-        Button pasteKeyBtn = findViewById(R.id.btn_paste_key);
-        pasteKeyBtn.setOnClickListener(v -> showImportDialog());
+        Button importKeyBtn = findViewById(R.id.btn_import_key);
+        importKeyBtn.setOnClickListener(v -> showImportRecipientDialog());
+
+        Button exportKeyBtn = findViewById(R.id.btn_export_key);
+        exportKeyBtn.setOnClickListener(v -> showExportKeyDialog());
 
         updateStatus();
     }
@@ -49,7 +49,7 @@ public class SettingsActivity extends AppCompatActivity {
     private void showPassphraseDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Set Passphrase");
-        builder.setMessage("Protect your private key with a passphrase.");
+        builder.setMessage("Enter a passphrase to protect your private key. You will need this to decrypt received messages.");
         
         EditText passphrase = new EditText(this);
         passphrase.setHint("Enter passphrase");
@@ -60,20 +60,28 @@ public class SettingsActivity extends AppCompatActivity {
         builder.setPositiveButton("Generate", (dialog, which) -> {
             String pw = passphrase.getText().toString();
             if (pw.isEmpty()) {
-                status("Passphrase required for security");
+                status("Passphrase required");
                 return;
             }
-            Crypto.generateKeyPair(this, pw);
-            status("Key pair generated. Keep your passphrase safe.");
+            if (pw.length() < 8) {
+                status("Passphrase must be at least 8 characters");
+                return;
+            }
+            String pubKey = Crypto.generateKeyPair(this, pw);
+            if (pubKey != null) {
+                status("Key pair generated. Share your public key with contacts.");
+            } else {
+                status("Key generation failed");
+            }
         });
         builder.setNegativeButton("Cancel", null);
         builder.show();
     }
 
-    private void showImportDialog() {
+    private void showImportRecipientDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Import Recipient Key");
-        builder.setMessage("Paste their PGP public key:");
+        builder.setMessage("Paste their PGP public key to encrypt messages for them:");
         
         EditText keyInput = new EditText(this);
         keyInput.setHint("-----BEGIN PGP PUBLIC KEY BLOCK-----");
@@ -82,15 +90,26 @@ public class SettingsActivity extends AppCompatActivity {
         
         builder.setPositiveButton("Import", (dialog, which) -> {
             String key = keyInput.getText().toString();
-            if (key.contains("BEGIN PGP PUBLIC KEY")) {
-                Crypto.setRecipientPublicKey(this, key);
-                status("Recipient key imported");
+            if (Crypto.setRecipientPublicKey(this, key)) {
+                status("Recipient key imported and validated");
             } else {
-                status("Invalid public key format");
+                status("Invalid PGP public key");
             }
         });
         builder.setNegativeButton("Cancel", null);
         builder.show();
+    }
+
+    private void showExportKeyDialog() {
+        // Show the user their public key so they can share it
+        android.content.SharedPreferences prefs = getSharedPreferences("typeveil_prefs", MODE_PRIVATE);
+        String encryptedKey = prefs.getString("enc_privkey", null);
+        if (encryptedKey == null) {
+            status("No key pair generated yet");
+            return;
+        }
+        // For now, show a placeholder - the public key would need to be stored or regenerated
+        status("Export: regenerate keys or share public key manually");
     }
 
     private void updateStatus() {
@@ -105,11 +124,20 @@ public class SettingsActivity extends AppCompatActivity {
                 break;
             }
         }
-        status.setText(enabled ? "Typeveil is enabled" : "Enable Typeveil in Input Method settings");
+        boolean hasKeys = getSharedPreferences("typeveil_prefs", MODE_PRIVATE)
+            .getBoolean("has_keypair", false);
+        
+        if (enabled && hasKeys) {
+            status.setText("Typeveil enabled. Keys configured.");
+        } else if (enabled) {
+            status.setText("Typeveil enabled. Generate a key pair to start encrypting.");
+        } else {
+            status.setText("Enable Typeveil in Input Method settings");
+        }
     }
 
     private void status(String msg) {
-        findViewById(R.id.tv_status);
-        ((TextView) findViewById(R.id.tv_status)).setText(msg);
+        TextView tv = findViewById(R.id.tv_status);
+        if (tv != null) tv.setText(msg);
     }
 }

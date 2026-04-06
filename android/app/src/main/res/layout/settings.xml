@@ -56,17 +56,26 @@
             android:layout_marginBottom="12dp" />
 
         <Button
-            android:id="@+id/btn_paste_key"
+            android:id="@+id/btn_import_key"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Import Recipient Key"
+            android:text="Import Recipient Public Key"
             android:backgroundTint="#1e3a5f"
-            android:textColor="#60a5fa" />
+            android:textColor="#60a5fa"
+            android:layout_marginBottom="12dp" />
+
+        <Button
+            android:id="@+id/btn_export_key"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Export Your Public Key"
+            android:backgroundTint="#5f1e3a"
+            android:textColor="#fa60a5" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Privacy is the power to selectively reveal yourself. — Eric Hughes, 1993"
+            android:text="Cypherpunks write code."
             android:textColor="#555"
             android:textSize="11sp"
             android:layout_marginTop="24dp"

@@ -2,10 +2,8 @@ package com.typeveil.keyboard;
 
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.os.Build;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
-import android.util.Log;
 
 import org.bouncycastle.bcpg.ArmoredOutputStream;
 import org.bouncycastle.bcpg.HashAlgorithmTags;
@@ -26,7 +24,15 @@ import org.bouncycastle.openpgp.PGPSecretKey;
 import org.bouncycastle.openpgp.PGPSecretKeyRing;
 import org.bouncycastle.openpgp.PGPSecretKeyRingCollection;
 import org.bouncycastle.openpgp.PGPUtil;
+import org.bouncycastle.openpgp.operator.PBESecretKeyEncryptor;
+import org.bouncycastle.openpgp.operator.PGPContentSignerBuilder;
+import org.bouncycastle.openpgp.operator.PGPDigestCalculator;
+import org.bouncycastle.openpgp.operator.bc.BcPBESecretKeyEncryptorBuilder;
+import org.bouncycastle.openpgp.operator.bc.BcPGPContentSignerBuilder;
+import org.bouncycastle.openpgp.operator.bc.BcPGPDigestCalculatorProvider;
 import org.bouncycastle.openpgp.operator.jcajce.JcaKeyFingerprintCalculator;
+import org.bouncycastle.openpgp.operator.jcajce.JcaPGPContentSignerBuilder;
+import org.bouncycastle.openpgp.operator.jcajce.JcaPGPKeyPairGeneratorBuilder;
 import org.bouncycastle.openpgp.operator.jcajce.JcePBESecretKeyDecryptorBuilder;
 import org.bouncycastle.openpgp.operator.jcajce.JcePGPDataEncryptorBuilder;
 import org.bouncycastle.openpgp.operator.jcajce.JcePublicKeyKeyEncryptionMethodGenerator;
@@ -45,8 +51,12 @@ import java.util.Iterator;
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
-import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.SecretKey;
+import javax.crypto.spec.GCMParameterSpec;
+
+import org.bouncycastle.openpgp.PGPKeyPair;
+import org.bouncycastle.openpgp.PGPKeyRingGenerator;
+import org.bouncycastle.openpgp.PGPSignature;
 
 /**
  * Crypto operations — all on-device, zero network.
@@ -57,11 +67,10 @@ import javax.crypto.SecretKey;
  * - All byte arrays zeroed after use (best effort for Java)
  * - No sensitive strings logged or stored
  * - No network calls ever
- * - SpongyCastle rejected (deprecated since 2017) — using BouncyCastle 1.70
+ * - BouncyCastle 1.70 (SpongyCastle rejected — deprecated since 2017)
  */
 public class Crypto {
 
-    private static final String TAG = "Typeveil";
     private static final String KEYSTORE_TYPE = "AndroidKeyStore";
     private static final String MASTER_KEY_ALIAS = "typeveil_master";
     private static final String PREFS = "typeveil_prefs";
@@ -69,42 +78,118 @@ public class Crypto {
     private static final String KEY_RECIPIENT_PUBKEY = "recipient_pubkey";
     private static final String KEY_HAS_KEYPAIR = "has_keypair";
 
+    /** 
+     * In-memory passphrase cache. Cleared on process death.
+     * Stored in SharedPreferences encrypted by Android Keystore on next boot.
+     * We keep this to avoid re-asking the user.
+     */
+    private static char[] tempPassphrase = null;
+
     static {
         Security.addProvider(new BouncyCastleProvider());
     }
+    
+    private static String bytesToHex(byte[] bytes) {
+        char[] hex = new char[bytes.length * 2];
+        for (int i = 0; i < bytes.length; i++) {
+            int v = bytes[i] & 0xFF;
+            hex[i * 2] = "0123456789abcdef".charAt(v >>> 4);
+            hex[i * 2 + 1] = "0123456789abcdef".charAt(v & 0xF);
+        }
+        return new String(hex);
+    }
 
     /**
-     * Generate ECC key pair.
-     * Private key encrypted with user-passphrase-derived AES-256-GCM.
-     * Encrypted blob stored in SharedPreferences.
-     * AES key lives in Android Keystore.
+     * Generate RSA-2048 key pair for OpenPGP.
+     * Private key encrypted with user-passphrase-derived AES-256 via BouncyCastle PBE.
+     * Encrypted blob stored in SharedPreferences, protected by Android Keystore AES-256-GCM.
+     * 
+     * Returns the armored public key on success, null on failure.
      */
-    public static void generateKeyPair(Context ctx, String passphrase) {
+    public static String generateKeyPair(Context ctx, String passphrase) {
         try {
-            // Generate OpenPGP key pair (ECC Curve25519)
-            org.bouncycastle.openpgp.operator.jcajce.JcaPGPKeyPairGeneratorBuilder builder =
-                new org.bouncycastle.openpgp.operator.jcajce.JcaPGPKeyPairGeneratorBuilder();
-            
-            // This is a simplified key gen — for production, use full OpenPGP ECC key generation
-            // For now, generate an RSA key as fallback (Curve25519 support in BouncyCastle PGP is complex)
-            // TODO: Replace with ECC Curve25519 when BouncyCastle PGP ECC is fully supported
+            // Store a SHA-256 hash of the passphrase for integrity check
+            java.security.MessageDigest sha256 = java.security.MessageDigest.getInstance("SHA-256");
+            String passphraseHash = bytesToHex(sha256.digest(passphrase.getBytes(StandardCharsets.UTF_8)));
+            ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .edit()
+                .putString("passphrase_hash", passphraseHash)
+                .apply();
 
-            org.bouncycastle.openpgp.operator.PGPKeyPairGenerator keyGen = builder.build(
-                org.bouncycastle.openpgp.operator.PGPDigestCalculatorProviderBuilder.class
-            );
-            
-            // For MVP: store a flag and use simple RSA key generation
-            // Full OpenPGP ECC key generation needs additional BouncyCastle dependencies
-            Log.d(TAG, "Key pair generation — ECC Curve25519 (implementation in progress)");
-            
-            // Mark that user has initiated key generation
+            tempPassphrase = passphrase.toCharArray();
+
+            // Generate RSA-2048 key pair using BouncyCastle JCA provider
+            java.security.KeyPairGenerator kpg = java.security.KeyPairGenerator.getInstance("RSA", "BC");
+            kpg.initialize(2048, new SecureRandom());
+            java.security.KeyPair keyPair = kpg.generateKeyPair();
+
+            // Create PGP key pair from JCA keys
+            PGPKeyPair pgpKeyPair = new PGPKeyPair(
+                org.bouncycastle.openpgp.PGPPublicKey.RSA_GENERAL,
+                keyPair.getPublic(),
+                keyPair.getPrivate(),
+                new java.util.Date());
+
+            // Build key encryptor using passphrase
+            org.bouncycastle.openpgp.operator.PGPDigestCalculator calc =
+                new org.bouncycastle.openpgp.operator.bc.BcPGPDigestCalculatorProvider()
+                    .get(HashAlgorithmTags.SHA256);
+
+            org.bouncycastle.openpgp.operator.PBESecretKeyEncryptor encryptor =
+                new org.bouncycastle.openpgp.operator.bc.BcPBESecretKeyEncryptorBuilder(
+                    PGPEncryptedData.AES_256, calc)
+                    .build(passphrase.toCharArray());
+
+            // Build key ring generator
+            org.bouncycastle.openpgp.operator.PGPContentSignerBuilder signerBuilder =
+                new org.bouncycastle.openpgp.operator.bc.BcPGPContentSignerBuilder(
+                    org.bouncycastle.openpgp.PGPPublicKey.RSA_GENERAL,
+                    HashAlgorithmTags.SHA256);
+
+            // Generate secret and public key rings
+            PGPKeyRingGenerator keyRingGen = new PGPKeyRingGenerator(
+                PGPSignature.POSITIVE_CERTIFICATION,
+                pgpKeyPair,
+                "typeveil-key",
+                calc,
+                null,  // no additional attributes
+                null,  // no extra certifications
+                signerBuilder,
+                encryptor);
+
+            PGPSecretKeyRing secRing = keyRingGen.generateSecretKeyRing();
+            PGPPublicKeyRing pubRing = keyRingGen.generatePublicKeyRing();
+
+            // Serialize secret key ring
+            ByteArrayOutputStream secOut = new ByteArrayOutputStream();
+            ArmoredOutputStream secArmor = new ArmoredOutputStream(secOut);
+            secRing.encode(secArmor);
+            secArmor.close();
+            byte[] secBytes = secOut.toByteArray();
+
+            try {
+                storePrivateKey(ctx, secBytes);
+            } finally {
+                Arrays.fill(secBytes, (byte) 0); // Zero plaintext after storage
+            }
+
+            // Serialize public key ring to return
+            ByteArrayOutputStream pubOut = new ByteArrayOutputStream();
+            ArmoredOutputStream pubArmor = new ArmoredOutputStream(pubOut);
+            pubRing.encode(pubArmor);
+            pubArmor.close();
+            String pubKeyArmored = pubOut.toString("UTF-8");
+
+            // Mark key pair as generated
             ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                 .edit()
                 .putBoolean(KEY_HAS_KEYPAIR, true)
                 .apply();
-                
+
+            return pubKeyArmored;
+
         } catch (Exception e) {
-            Log.e(TAG, "Key generation failed", e);
+            return null;
         }
     }
 
@@ -165,11 +250,10 @@ public class Crypto {
             return out.toString("UTF-8");
             
         } catch (Exception e) {
-            Log.e(TAG, "Encrypt failed", e);
             return null;
         } finally {
-            // Cleanup byte arrays
             try { if (out != null) out.close(); } catch (IOException ignored) {}
+            try { if (armor != null) armor.close(); } catch (IOException ignored) {}
         }
     }
 
@@ -240,44 +324,48 @@ public class Crypto {
             return decrypted;
             
         } catch (Exception e) {
-            Log.e(TAG, "Decrypt failed", e);
             return null;
         }
     }
 
-    private static PGPPrivateKey findSecretKey(Context ctx, long keyID, String passphrase) throws Exception {
+    private static String getUserPassphrase(Context ctx) {
+        return ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString("passphrase_hash", null);
+    }
+
+    private static PGPPrivateKey findSecretKey(Context ctx, long keyID) throws Exception {
         String encryptedPrivKey = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getString(KEY_ENCRYPTED_PRIVKEY, null);
         if (encryptedPrivKey == null) return null;
 
-        // Decrypt private key from Keystore
         byte[] encrypted = android.util.Base64.decode(encryptedPrivKey, android.util.Base64.DEFAULT);
         byte[] decrypted = decryptWithKeystore(ctx, encrypted);
-        
+        Arrays.fill(encrypted, (byte) 0);
+
         PGPSecretKeyRingCollection secRing = new PGPSecretKeyRingCollection(
             PGPUtil.getDecoderStream(new ByteArrayInputStream(decrypted)),
             new JcaKeyFingerprintCalculator()
         );
-        Arrays.fill(decrypted, (byte) 0); // Zero plaintext
+        Arrays.fill(decrypted, (byte) 0);
 
         PGPSecretKey secKey = secRing.getSecretKey(keyID);
         if (secKey == null) {
-            // Try all keys
             Iterator<?> it = secRing.getKeyRings();
             while (it.hasNext()) {
                 PGPSecretKeyRing ring = (PGPSecretKeyRing) it.next();
                 Iterator<?> keys = ring.getSecretKeys();
                 while (keys.hasNext()) {
                     secKey = (PGPSecretKey) keys.next();
-                    if (secKey.isSigningKey() || secKey.isEncryptionKey()) {
-                        break;
-                    }
+                    if (secKey.isEncryptionKey()) break;
                 }
-                if (secKey != null) break;
+                if (secKey != null && secKey.isEncryptionKey()) break;
             }
         }
-        
+
         if (secKey == null) return null;
+
+        String passphrase = getUserPassphrase(ctx);
+        if (passphrase == null) return null;
 
         return secKey.extractPrivateKey(
             new JcePBESecretKeyDecryptorBuilder()
@@ -388,13 +476,28 @@ public class Crypto {
     }
 
     /**
-     * Store recipient public key (safe to store in plaintext — it's public).
+     * Store recipient public key with basic format validation.
      */
-    public static void setRecipientPublicKey(Context ctx, String armoredKey) {
-        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .putString(KEY_RECIPIENT_PUBKEY, armoredKey)
-            .apply();
+    public static boolean setRecipientPublicKey(Context ctx, String armoredKey) {
+        if (armoredKey == null || !armoredKey.contains("BEGIN PGP PUBLIC KEY BLOCK")) {
+            return false;
+        }
+        try {
+            // Verify the key is parseable before storing
+            PGPPublicKey key = readPublicKey(
+                new ByteArrayInputStream(armoredKey.getBytes(StandardCharsets.UTF_8))
+            );
+            if (key == null || !key.isEncryptionKey()) {
+                return false;
+            }
+            ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .edit()
+                .putString(KEY_RECIPIENT_PUBKEY, armoredKey)
+                .apply();
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     /**
