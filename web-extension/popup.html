@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { width: 360px; padding: 0; margin: 0; font-family: system-ui, sans-serif; background: #0d0d1a; color: #e0e0e0; }
+    .header { padding: 16px; background: #1a1a2e; border-bottom: 1px solid #2a2a4a; }
+    .header h1 { margin: 0; font-size: 18px; color: #7c3aed; }
+    .header p { margin: 4px 0 0; font-size: 12px; color: #888; }
+    .section { padding: 16px; border-bottom: 1px solid #2a2a4a; }
+    .section h2 { margin: 0 0 12px; font-size: 14px; color: #7c3aed; }
+    textarea { width: 100%; min-height: 100px; background: #1a1a2e; color: #e0e0e0; border: 1px solid #2a2a4a; border-radius: 4px; padding: 8px; font-family: monospace; font-size: 12px; box-sizing: border-box; resize: vertical; }
+    label { display: block; margin-bottom: 4px; font-size: 12px; color: #888; }
+    button { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; margin: 4px 4px 4px 0; }
+    .btn-veil { background: #065f46; color: #34d399; }
+    .btn-unveil { background: #1e3a5f; color: #60a5fa; }
+    .btn-copy { background: #3a1e5f; color: #b088f9; }
+    .btn-gen { background: #065f46; color: #34d399; }
+    .btn-export { background: #5f1e3a; color: #fa60a5; }
+    .status { padding: 12px 16px; font-size: 12px; color: #888; border-top: 1px solid #2a2a4a; background: #1a1a2e; }
+    .key-info { font-size: 12px; color: #34d399; margin-bottom: 8px; }
+    .no-keys { font-size: 12px; color: #f87171; margin-bottom: 12px; }
+    input[type="password"], input[type="text"] { width: 100%; padding: 8px; background: #1a1a2e; color: #e0e0e0; border: 1px solid #2a2a4a; border-radius: 4px; margin-bottom: 12px; box-sizing: border-box; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Typeveil</h1>
+    <p>Type. Veil. Send.</p>
+  </div>
+  <div id="status-bar" class="status">Loading...</div>
+  <div class="section" id="key-section">
+    <h2>Keys</h2>
+    <div id="key-status"></div>
+    <div id="generate-form" style="display:none">
+      <label>Set passphrase (min 8 chars):</label>
+      <input type="password" id="passphrase" placeholder="Enter passphrase">
+      <button class="btn-gen" id="btn-gen">Generate Key Pair</button>
+    </div>
+    <div id="key-info-display" style="display:none">
+      <p class="key-info">Key pair generated.</p>
+      <button class="btn-export" id="btn-export">Export Public Key</button>
+    </div>
+  </div>
+  <div class="section" id="encrypt-section" style="display:none">
+    <h2>Encrypt</h2>
+    <label>Plaintext to encrypt:</label>
+    <textarea id="plain-input" placeholder="Type your secret message here..."></textarea>
+    <button class="btn-veil" id="btn-veil">Veil</button>
+    <button class="btn-copy" id="btn-copy-enc">Copy Ciphertext</button>
+    <div style="margin-top: 8px">
+      <label>Ciphertext:</label>
+      <textarea id="cipher-output" readonly placeholder="Encrypted message appears here..."></textarea>
+    </div>
+  </div>
+  <div class="section" id="decrypt-section" style="display:none">
+    <h2>Decrypt</h2>
+    <label>Paste PGP message:</label>
+    <textarea id="cipher-input" placeholder="-----BEGIN PGP MESSAGE-----..."></textarea>
+    <button class="btn-unveil" id="btn-unveil">Unveil</button>
+    <button class="btn-copy" id="btn-copy-plain">Copy Plaintext</button>
+    <div style="margin-top: 8px">
+      <label>Decrypted:</label>
+      <textarea id="plain-output" readonly placeholder="Decrypted message appears here..."></textarea>
+    </div>
+  </div>
+  <div class="section">
+    <h2>Recipient</h2>
+    <label>Paste recipient's PGP public key:</label>
+    <textarea id="recipient-key" placeholder="-----BEGIN PGP PUBLIC KEY BLOCK-----" style="min-height: 80px;"></textarea>
+    <button class="btn-copy" id="btn-import">Import</button>
+    <div id="recipient-status" style="font-size: 11px; margin-top: 4px; color: #888;"></div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -2,6 +2,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- INTERNET is used only by SettingsActivity for Nostr key resolution.
+         The keyboard service (TypeveilIME) and crypto engine (Crypto.java)
+         never make network calls. Private keys and ciphertext never touch
+         the network. Verifiable by code audit. -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:allowBackup="false"

@@ -1,20 +1,29 @@
-# Nostr tools
-node_modules/
-package-lock.json
-
-# Android
-*.iml
-.gradle
-/local.properties
-/.idea/
-.DS_Store
-/build/
-/captures/
-.externalNativeBuild
-.cxx
-local.properties
+# Build outputs
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+**/build/
+**/out/
 
 # IDE
-*.swp
-*.swo
-*~
+.idea/
+*.iml
+*.jks
+*.key
+*.hprof
+captures/
+.thumbs/
+local.properties
+
+# Generated
+.gradle/
+*.log
+
+# Nostr tools
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db

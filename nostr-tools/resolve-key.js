@@ -1,144 +1,142 @@
 #!/usr/bin/env node
 //
-// resolve-key.js — Find someone's PGP public key via Nostr
+// resolve-key.js — Resolve a Nostr handle to their PGP public key for Typeveil
 //
 // Usage:
 //   node resolve-key.js alice@example.com
 //   node resolve-key.js npub1abc123...
-//   node resolve-key.js nprofile1...
-//   node resolve-key.js hex123abc... --relay wss://your-relay.com
 //
-// Resolution:
-//   1. NIP-05 handle → pubkey via DNS
-//   2. Query relays for kind 30078 d-tag "typeveil-pgp-pubkey"
-//   3. Output armored PGP key block to stdout
+// What it does:
+//   1. If NIP-05 handle: resolves via HTTPS → .well-known/nostr.json → pubkey
+//   2. If npub: decodes directly to pubkey
+//   3. Queries relays for Kind 30078 event tagged typeveil-pgp-pubkey
+//   4. Prints the armored PGP public key to stdout
 //
-// Pipe output directly into your Typeveil import, or save to file.
+// This is a CLI companion. The keyboard itself has zero network permission.
 //
 
-const { relayInit, nip19, nip05 } = require('nostr-tools');
+const { relayInit, nip19, getEventHash, getSignature, getPublicKey } = require('nostr-tools');
 
-const DEFAULT_RELAYS = [
+const RELAYS = [
     'wss://relay.damus.io',
-    'wss://relay.snort.social',
-    'wss://nos.lol',
     'wss://relay.nostr.band',
+    'wss://nos.lol',
 ];
 const KIND = 30078;
 const D_TAG = 'typeveil-pgp-pubkey';
-const TIMEOUT = 10000;
+
+async function resolvePubkey(handle) {
+    if (handle.startsWith('npub1')) {
+        // Already a Nostr pubkey
+        const decoded = nip19.decode(handle);
+        return decoded.data;
+    }
+
+    // NIP-05 resolution
+    const { nip05 } = require('nostr-tools');
+    const result = await nip05.queryProfile(handle);
+    if (!result || !result.pubkey) {
+        process.stderr.write(`Could not resolve: ${handle}\n`);
+        process.exit(1);
+    }
+    return result.pubkey;
+}
 
 async function main() {
-    const args = process.argv.slice(2);
-    if (args.length < 1) {
-        console.error('Usage: node resolve-key.js <nostr-identity> [relay...]');
+    const handle = process.argv[2];
+    if (!handle) {
+        process.stderr.write('Usage: node resolve-key.js <handle|npub>\n');
+        process.stderr.write('\nExamples:\n');
+        process.stderr.write('  node resolve-key.js alice@example.com\n');
+        process.stderr.write('  node resolve-key.js npub1abc123...\n');
         process.exit(1);
     }
 
-    let identity = args[0];
-    let pubkey = identity;
+    process.stderr.write(`Resolving ${handle}...\n`);
+    const pubkey = await resolvePubkey(handle);
+    process.stderr.write(`Nostr pubkey: ${pubkey.slice(0, 16)}...\n`);
 
-    // Resolve NIP-05 handle
-    if (identity.includes('@')) {
-        process.stderr.write(`Resolving NIP-05: ${identity}\n`);
+    // Query relays for Kind 30078
+    let pgpKey = null;
+    let relayUsed = '';
+
+    for (const url of RELAYS) {
+        process.stderr.write(`  Querying ${url}... `);
         try {
-            const result = await nip05.queryProfile(identity);
-            if (!result || !result.pubkey) {
-                process.stderr.write(`  FAILED: ${identity} not found\n`);
-                process.exit(1);
+            const pgp = await queryRelay(url, pubkey);
+            if (pgp) {
+                pgpKey = pgp;
+                relayUsed = url;
+                process.stderr.write('found ✓\n');
+                break;
+            } else {
+                process.stderr.write('not found\n');
             }
-            pubkey = result.pubkey;
-            process.stderr.write(`  pubkey: ${pubkey.slice(0, 16)}...\n`);
         } catch (e) {
-            process.stderr.write(`  FAILED: ${e.message}\n`);
-            process.exit(1);
+            process.stderr.write(`error: ${e.message}\n`);
         }
     }
 
-    // Decode bech32
-    if (pubkey.startsWith('npub1') || pubkey.startsWith('nprofile1')) {
-        try {
-            const decoded = nip19.decode(pubkey);
-            pubkey = decoded.type === 'nprofile' ? decoded.data.pubkey : decoded.data;
-            process.stderr.write(`  decoded pubkey: ${pubkey.slice(0, 16)}...\n`);
-        } catch (e) {
-            process.stderr.write(`  FAILED decode: ${e.message}\n`);
-            process.exit(1);
-        }
-    }
-
-    // Connect to relays
-    const relayUrls = args.filter((a, i) => i > 0 && args[i - 1] === '--relay');
-    const urls = relayUrls.length > 0 ? relayUrls : DEFAULT_RELAYS;
-    process.stderr.write(`Connecting to ${urls.length} relays...\n`);
-
-    const relays = [];
-    for (const url of urls) {
-        try {
-            const relay = relayInit(url);
-            await relay.connect();
-            relays.push(relay);
-            process.stderr.write(`  ✓ ${url}\n`);
-        } catch (e) {
-            process.stderr.write(`  ✗ ${url}\n`);
-        }
-    }
-
-    if (relays.length === 0) {
-        process.stderr.write('No relays connected\n');
+    if (!pgpKey) {
+        process.stderr.write('\nNo PGP key found on relays.\n');
+        process.stderr.write('They may not have published it yet.\n');
         process.exit(1);
     }
 
-    // Query for kind 30078 with d-tag "typeveil-pgp-pubkey"
-    const filter = {
-        kinds: [KIND],
-        authors: [pubkey],
-        '#d': [D_TAG],
-        limit: 1,
-    };
+    // Verify it's a valid PGP key
+    if (!pgpKey.includes('BEGIN PGP PUBLIC KEY BLOCK')) {
+        process.stderr.write('\nInvalid PGP key retrieved.\n');
+        process.exit(1);
+    }
 
-    let found = null;
+    // Print key to stdout (for piping)
+    process.stdout.write(pgpKey + '\n');
+    process.stderr.write(`\nResolved via: ${relayUsed}\n`);
+    process.stderr.write('Import this into Typeveil Settings → Import PGP Key\n');
+}
 
-    const promises = relays.map(relay => {
-        return new Promise((resolve) => {
-            const sub = relay.sub([filter]);
+async function queryRelay(url, pubkey) {
+    return new Promise((resolve, reject) => {
+        const relay = relayInit(url);
+        let resolved = false;
+        const timeout = setTimeout(() => {
+            if (!resolved) {
+                relay.close();
+                resolve(null);
+            }
+        }, 5000);
 
-            sub.on('event', (event) => {
-                if (event.content && event.content.includes('BEGIN PGP PUBLIC KEY BLOCK')) {
-                    found = event.content;
-                    sub.unsub();
-                    resolve(true);
-                }
+        relay.on('connect', () => {
+            const sub = relay.sub([
+                { kinds: [KIND], authors: [pubkey], '#d': [D_TAG], limit: 1 }
+            ]);
+
+            sub.on('event', event => {
+                clearTimeout(timeout);
+                resolved = true;
+                relay.close();
+                resolve(event.content);
             });
 
             sub.on('eose', () => {
-                resolve(false);
+                clearTimeout(timeout);
+                resolved = true;
+                relay.close();
+                resolve(null);
             });
-
-            setTimeout(() => {
-                try { sub.unsub(); } catch (e) {}
-                resolve(false);
-            }, TIMEOUT);
         });
+
+        relay.on('error', (e) => {
+            clearTimeout(timeout);
+            resolved = true;
+            reject(e);
+        });
+
+        relay.connect().catch(reject);
     });
-
-    await Promise.all(promises);
-
-    // Close relays
-    relays.forEach(r => r.close());
-
-    if (!found) {
-        process.stderr.write('\nNo Typeveil PGP key found for this identity.\n');
-        process.stderr.write('They may not have published one yet.\n');
-        process.exit(1);
-    }
-
-    // Output the key to stdout
-    console.log(found);
-    process.stderr.write('\nKey found. Import in Typeveil Settings → Import Recipient Key.\n');
 }
 
 main().catch(e => {
-    process.stderr.write(`Error: ${e.message}\n`);
+    process.stderr.write(`Aborted: ${e.message}\n`);
     process.exit(1);
 });

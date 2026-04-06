@@ -2,84 +2,117 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#0d0d1a"
-    android:padding="20dp">
+    android:background="#0D1117">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:spacing="16dp">
+        android:padding="20dp">
 
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Typeveil"
-            android:textColor="#7c3aed"
-            android:textSize="24sp"
+            android:textSize="28sp"
             android:textStyle="bold"
-            android:layout_marginBottom="4dp" />
+            android:textColor="#E6EDF3"
+            android:layout_marginBottom="4dp"/>
 
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Type. Veil. Send."
-            android:textColor="#888"
-            android:textSize="12sp"
-            android:layout_marginBottom="20dp" />
-
-        <TextView
-            android:id="@+id/tv_status"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Checking..."
-            android:textColor="#888"
+            android:text="PGP encryption at the keyboard"
             android:textSize="14sp"
-            android:layout_marginBottom="16dp" />
+            android:textColor="#8B949E"
+            android:layout_marginBottom="24dp"/>
+
+        <!-- Actions -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Actions"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="#58C4DD"
+            android:layout_marginBottom="12dp"/>
 
         <Button
             android:id="@+id/btn_enable"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Enable Keyboard"
-            android:backgroundTint="#7c3aed"
-            android:textColor="#fff"
-            android:layout_marginBottom="12dp" />
+            android:backgroundTint="#30363D"
+            android:textColor="#E6EDF3"
+            android:layout_marginBottom="8dp"/>
 
         <Button
             android:id="@+id/btn_gen_key"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Generate Key Pair"
-            android:backgroundTint="#065f46"
-            android:textColor="#34d399"
-            android:layout_marginBottom="12dp" />
+            android:backgroundTint="#30363D"
+            android:textColor="#E6EDF3"
+            android:layout_marginBottom="8dp"/>
+
+        <Button
+            android:id="@+id/btn_add_contact"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Add Contact (Nostr)"
+            android:backgroundTint="#30363D"
+            android:textColor="#E6EDF3"
+            android:layout_marginBottom="8dp"/>
 
         <Button
             android:id="@+id/btn_import_key"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Import Recipient Public Key"
-            android:backgroundTint="#1e3a5f"
-            android:textColor="#60a5fa"
-            android:layout_marginBottom="12dp" />
+            android:text="Import PGP Key"
+            android:backgroundTint="#30363D"
+            android:textColor="#E6EDF3"
+            android:layout_marginBottom="8dp"/>
 
         <Button
             android:id="@+id/btn_export_key"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Export Your Public Key"
-            android:backgroundTint="#5f1e3a"
-            android:textColor="#fa60a5" />
+            android:text="Export My Key"
+            android:backgroundTint="#30363D"
+            android:textColor="#E6EDF3"
+            android:layout_marginBottom="24dp"/>
+
+        <!-- Contacts -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Contacts"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="#58C4DD"
+            android:layout_marginBottom="8dp"/>
+
+        <LinearLayout
+            android:id="@+id/contacts_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginBottom="24dp"/>
+
+        <!-- Status -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#30363D"
+            android:layout_marginBottom="16dp"/>
 
         <TextView
-            android:layout_width="wrap_content"
+            android:id="@+id/tv_status"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Cypherpunks write code."
-            android:textColor="#555"
-            android:textSize="11sp"
-            android:layout_marginTop="24dp"
-            android:layout_marginBottom="8dp" />
+            android:text="Loading..."
+            android:textSize="13sp"
+            android:textColor="#8B949E"/>
 
     </LinearLayout>
 </ScrollView>

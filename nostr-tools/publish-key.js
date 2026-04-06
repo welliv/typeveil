@@ -141,6 +141,9 @@ async function main() {
     process.stderr.write(`\nDone: ${success} published, ${fail} failed\n`);
     process.stderr.write('Others can find your key with:\n');
     process.stderr.write(`  node resolve-key.js ${npub}\n`);
+
+    // Print the PGP public key to stdout so user can also copy it manually
+    console.log(pgpKey.trim());
 }
 
 main().catch(e => {

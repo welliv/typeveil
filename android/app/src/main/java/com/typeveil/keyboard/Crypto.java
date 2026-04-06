@@ -178,10 +178,11 @@ public class Crypto {
             pubArmor.close();
             String pubKeyArmored = pubOut.toString("UTF-8");
 
-            // Mark key pair as generated
+            // Mark key pair as generated and cache the public key
             ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                 .edit()
                 .putBoolean(KEY_HAS_KEYPAIR, true)
+                .putString("my_pubkey", pubKeyArmored)
                 .apply();
 
             return pubKeyArmored;
@@ -292,8 +293,8 @@ public class Crypto {
 
             if (encData == null) return null;
 
-            // Get private key — requires passphrase
-            PGPPrivateKey privKey = findSecretKey(ctx, encData.getKeyID(), "");
+            // Get private key
+            PGPPrivateKey privKey = findSecretKey(ctx, encData.getKeyID());
             if (privKey == null) return null;
 
             // Decrypt
