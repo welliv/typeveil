@@ -1,9 +1,0 @@
-#!/bin/sh
-GRADLE_HOME=/tmp/gradle-8.2-target
-APP_HOME="$(cd "$(dirname "$0")" && pwd)"
-CLASSPATH="$APP_HOME/gradle/wrapper/gradle-wrapper.jar"
-exec "$GRADLE_HOME/bin/java" \
-    -Dorg.gradle.appname=gradlew \
-    -classpath "$CLASSPATH" \
-    org.gradle.wrapper.GradleWrapperMain \
-    "$@"
