@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+  TypeVeil — PGP-encrypted Android keyboard
+  Fork strategy: OpenBoard → TypeVeil
+  Threat model: Zero-network IME, hardware-backed keys, PGP E2E
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    android:installLocation="internalOnly"
+    >
+
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- INTERNET only for Settings key import. IME itself makes zero network calls. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:label="@string/app_name"
+        android:supportsRtl="false"
+        android:defaultToDeviceProtectedStorage="true"
+        android:directBootAware="true">
+
+        <!-- Input Method Service -->
+        <service
+            android:name="com.typeveil.inputmethod.TypeveilIME"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_INPUT_METHOD"
+            android:directBootAware="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.view.InputMethod" />
+            </intent-filter>
+            <meta-data
+                android:name="android.view.im"
+                android:resource="@xml/method" />
+        </service>
+
+        <!-- Settings Activity -->
+        <activity
+            android:name="com.typeveil.inputmethod.SettingsActivity"
+            android:theme="@style/Theme.Material3.DayNight.NoActionBar"
+            android:label="@string/settings_title"
+            android:excludeFromRecents="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+            </intent-filter>
+        </activity>
+
+    </application>
+</manifest>

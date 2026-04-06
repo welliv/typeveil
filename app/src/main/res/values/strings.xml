@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">TypeVeil</string>
+    <string name="ime_name">TypeVeil</string>
+    <string name="settings_title">TypeVeil Settings</string>
+    <string name="veil_label">Veil</string>
+    <string name="unveil_label">Unveil</string>
+    <string name="encrypting">Encrypting…</string>
+    <string name="decrypting">Decrypting…</string>
+    <string name="encryption_failed">Encryption failed — text unchanged</string>
+    <string name="decryption_failed">Decryption failed — wrong key?</string>
+    <string name="nothing_to_encrypt">Nothing to encrypt</string>
+    <string name="nothing_to_decrypt">No PGP block found</string>
+    <string name="veil_mode_on">Veil mode ON — typing will encrypt</string>
+    <string name="veil_mode_off">Veil mode OFF</string>
+    <string name="contact_added">Contact added</string>
+    <string name="contact_removed">Contact removed</string>
+    <string name="no_contact_selected">Tap to select recipient</string>
+    <string name="encrypting_for">Encrypting for: %s</string>
+    <string name="no_contacts_yet">No contacts yet — tap + to add</string>
+    <string name="import_pgp_key">Import PGP Public Key</string>
+    <string name="paste_pgp_armored">Paste PGP armored public key block</string>
+    <string name="contact_handle">Handle (e.g. alice@domain.com)</string>
+    <string name="resolve_nostr">Resolve via Nostr</string>
+    <string name="nostr_hint">Nostr pubkey or NIP-05 address</string>
+    <string name="adding_contact">Adding contact…</string>
+    <string name="invalid_pgp_key">Invalid PGP key block</string>
+    <string name="key_fingerprint">Key fingerprint: %s</string>
+</resources>

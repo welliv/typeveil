@@ -1,0 +1,5 @@
+-keep class org.bouncycastle.** { *; }
+-keep class com.typeveil.** { *; }
+-dontwarn org.bouncycastle.**
+-keepattributes Signature, InnerClasses, *Annotation*
+-keep class javax.crypto.** { *; }

@@ -1,29 +1,10 @@
-# Build outputs
-*.apk
-*.aab
-*.ap_
-*.dex
-*.class
-**/build/
-**/out/
-
-# IDE
-.idea/
+/gradle/wrapper/gradle-wrapper.jar
+build/
+.local.properties
 *.iml
-*.jks
-*.key
-*.hprof
-captures/
-.thumbs/
-local.properties
-
-# Generated
-.gradle/
-*.log
-
-# Nostr tools
-node_modules/
-
-# OS
 .DS_Store
-Thumbs.db
+.gradle/
+.idea/
+*.jks
+*.keystore
+*.apk

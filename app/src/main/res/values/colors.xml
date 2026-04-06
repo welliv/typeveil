@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="veil_primary">#00D4AA</color>
+    <color name="veil_primary_dark">#00A885</color>
+    <color name="veil_background">#121214</color>
+    <color name="veil_surface">#1E1E22</color>
+    <color name="veil_text">#E0E0E0</color>
+    <color name="veil_accent">#8B5CF6</color>
+    <color name="veil_error">#FF4444</color>
+    <color name="veil_indicator">#4CAF50</color>
+    <color name="veil_warning">#FF9800</color>
+    <color name="ic_launcher_background">#121214</color>
+</resources>

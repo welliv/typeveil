@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.typeveil.inputmethod.keyboard.TypeveilKeyboardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/keyboard_view"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_alignParentBottom="true"
+    android:keyBackground="@drawable/key_background"
+    android:keyTextColor="@color/veil_text"
+    android:keyTextSize="22sp"
+    android:labelTextSize="16sp"
+    android:background="@color/veil_surface"
+    android:padding="2dp"
+    android:verticalCorrection="-10dp" />

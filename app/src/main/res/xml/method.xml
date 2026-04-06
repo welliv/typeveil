@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- TypeVeil Input Method Definition -->
+<input-method xmlns:android="http://schemas.android.com/apk/res/android"
+    android:settingsActivity="com.typeveil.inputmethod.SettingsActivity"
+    android:supportsSwitchingToNextInputMethod="true"
+    android:icon="@mipmap/ic_launcher"
+    android:isDefault="true">
+    <subtype
+        android:imeSubtypeMode="keyboard"
+        android:label="@string/ime_name"
+        android:languageTag="en" />
+</input-method>

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:title="@string/settings_title">
+
+    <SwitchPreferenceCompat
+        android:key="veil_mode"
+        android:title="Veil Mode"
+        android:summary="Auto-encrypt messages when typing"
+        android:defaultValue="false"
+        android:icon="@android:drawable/ic_lock_lock" />
+
+    <PreferenceCategory android:title="Contacts">
+        <Preference
+            android:key="manage_contacts"
+            android:title="Manage Contacts"
+            android:summary="Add/remove PGP keys for recipients" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Keys">
+        <Preference
+            android:key="export_public_key"
+            android:title="Export My Public Key"
+            android:summary="Share your PGP public key" />
+        <Preference
+            android:key="view_fingerprint"
+            android:title="View Key Fingerprint"
+            android:summary="Your master key fingerprint" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Security">
+        <SwitchPreferenceCompat
+            android:key="auto_clear_clipboard"
+            android:title="Auto-clear clipboard"
+            android:summary="Clear clipboard after encryption"
+            android:defaultValue="true" />
+        <SwitchPreferenceCompat
+            android:key="flag_secure"
+            android:title="Block screenshots"
+            android:summary="Prevent screenshots in keyboard"
+            android:defaultValue="true" />
+    </PreferenceCategory>
+
+</PreferenceScreen>
