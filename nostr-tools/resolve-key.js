@@ -16,7 +16,7 @@
 // Pipe output directly into your Typeveil import, or save to file.
 //
 
-const { Relay, nip19, nip05 } = require('nostr-tools');
+const { relayInit, nip19, nip05 } = require('nostr-tools');
 
 const DEFAULT_RELAYS = [
     'wss://relay.damus.io',
@@ -28,19 +28,14 @@ const KIND = 30078;
 const D_TAG = 'typeveil-pgp-pubkey';
 const TIMEOUT = 10000;
 
-async function resolve() {
+async function main() {
     const args = process.argv.slice(2);
     if (args.length < 1) {
         console.error('Usage: node resolve-key.js <nostr-identity> [relay...]');
-        console.error('  npub1... / nprofile1... / hex / name@domain.com');
         process.exit(1);
     }
 
     let identity = args[0];
-    const customRelays = args.filter(a => a.startsWith('--relay')).length > 0
-        ? args.filter((a, i) => i > 0 && args[i-1] === '--relay')
-        : [];
-    const relays = customRelays.length > 0 ? customRelays : DEFAULT_RELAYS;
     let pubkey = identity;
 
     // Resolve NIP-05 handle
@@ -49,13 +44,13 @@ async function resolve() {
         try {
             const result = await nip05.queryProfile(identity);
             if (!result || !result.pubkey) {
-                throw new Error('NIP-05 not found');
+                process.stderr.write(`  FAILED: ${identity} not found\n`);
+                process.exit(1);
             }
             pubkey = result.pubkey;
             process.stderr.write(`  pubkey: ${pubkey.slice(0, 16)}...\n`);
         } catch (e) {
-            process.stderr.write(`  FAILED: ${identity} — ${e.message}\n`);
-            process.stdout.write('ERROR\n');
+            process.stderr.write(`  FAILED: ${e.message}\n`);
             process.exit(1);
         }
     }
@@ -65,35 +60,36 @@ async function resolve() {
         try {
             const decoded = nip19.decode(pubkey);
             pubkey = decoded.type === 'nprofile' ? decoded.data.pubkey : decoded.data;
+            process.stderr.write(`  decoded pubkey: ${pubkey.slice(0, 16)}...\n`);
         } catch (e) {
             process.stderr.write(`  FAILED decode: ${e.message}\n`);
             process.exit(1);
         }
     }
 
-    // Strip nsec or hex prefix if present
-    if (pubkey.startsWith('nsec1')) pubkey = pubkey.slice(5);
-    pubkey = pubkey.toLowerCase();
+    // Connect to relays
+    const relayUrls = args.filter((a, i) => i > 0 && args[i - 1] === '--relay');
+    const urls = relayUrls.length > 0 ? relayUrls : DEFAULT_RELAYS;
+    process.stderr.write(`Connecting to ${urls.length} relays...\n`);
 
-    // Query relays
-    process.stderr.write(`Querying ${relays.length} relays...\n`);
-
-    const connections = [];
-    for (const url of relays) {
+    const relays = [];
+    for (const url of urls) {
         try {
-            const relay = await Relay.connect(url);
-            connections.push(relay);
-            process.stderr.write(`  connected: ${url}\n`);
+            const relay = relayInit(url);
+            await relay.connect();
+            relays.push(relay);
+            process.stderr.write(`  ✓ ${url}\n`);
         } catch (e) {
-            process.stderr.write(`  offline:  ${url}\n`);
+            process.stderr.write(`  ✗ ${url}\n`);
         }
     }
 
-    if (connections.length === 0) {
-        process.stderr.write('No relays available\n');
+    if (relays.length === 0) {
+        process.stderr.write('No relays connected\n');
         process.exit(1);
     }
 
+    // Query for kind 30078 with d-tag "typeveil-pgp-pubkey"
     const filter = {
         kinds: [KIND],
         authors: [pubkey],
@@ -102,56 +98,47 @@ async function resolve() {
     };
 
     let found = null;
-    const timeout = setTimeout(() => {
-        connections.forEach(r => r.close());
-        if (!found) {
-            process.stderr.write('Timeout: no key found\n');
-            process.exit(1);
-        }
-    }, TIMEOUT);
 
-    const subscription = `tv-${Date.now()}`;
+    const promises = relays.map(relay => {
+        return new Promise((resolve) => {
+            const sub = relay.sub([filter]);
 
-    for (const relay of connections) {
-        const sub = relay.subscribe([filter], {
-            id: subscription,
-            onevent(event) {
+            sub.on('event', (event) => {
                 if (event.content && event.content.includes('BEGIN PGP PUBLIC KEY BLOCK')) {
                     found = event.content;
+                    sub.unsub();
+                    resolve(true);
                 }
-            },
-            oneose() {
-                if (found) {
-                    clearTimeout(timeout);
-                    connections.forEach(r => r.close());
-                    console.log(found);
-                    process.stderr.write(`\nKey found. Import in Typeveil Settings → Import Recipient Key.\n`);
-                    process.exit(0);
-                }
-            },
-            onclose() {
-                // Individual relay closed
-            },
-        });
+            });
 
-        // Close subscription after timeout
-        setTimeout(() => {
-            try { sub.close(); } catch (e) {}
-        }, TIMEOUT);
+            sub.on('eose', () => {
+                resolve(false);
+            });
+
+            setTimeout(() => {
+                try { sub.unsub(); } catch (e) {}
+                resolve(false);
+            }, TIMEOUT);
+        });
+    });
+
+    await Promise.all(promises);
+
+    // Close relays
+    relays.forEach(r => r.close());
+
+    if (!found) {
+        process.stderr.write('\nNo Typeveil PGP key found for this identity.\n');
+        process.stderr.write('They may not have published one yet.\n');
+        process.exit(1);
     }
 
-    // If nothing found and oneose hasn't fired
-    setTimeout(() => {
-        connections.forEach(r => r.close());
-        if (!found) {
-            process.stderr.write('\nNo Typeveil PGP key found on any relay.\n');
-            process.stderr.write('They may not have published one yet, or use a different identity.\n');
-            process.exit(1);
-        }
-    }, TIMEOUT + 1000);
+    // Output the key to stdout
+    console.log(found);
+    process.stderr.write('\nKey found. Import in Typeveil Settings → Import Recipient Key.\n');
 }
 
-resolve().catch(e => {
+main().catch(e => {
     process.stderr.write(`Error: ${e.message}\n`);
     process.exit(1);
 });
